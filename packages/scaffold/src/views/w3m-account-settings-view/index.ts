@@ -11,7 +11,8 @@ import {
   StorageUtil,
   ConnectorController,
   SendController,
-  EnsController
+  EnsController,
+  ConstantsUtil
 } from '@web3modal/core'
 import { UiHelperUtil, customElement } from '@web3modal/ui'
 import { LitElement, html } from 'lit'
@@ -116,7 +117,8 @@ export class W3mAccountSettingsView extends LitElement {
       </wui-flex>
 
       <wui-flex flexDirection="column" gap="m">
-        <wui-flex flexDirection="column" gap="xs" .padding=${['0', 'xl', 'm', 'xl'] as const}>
+        <wui-flex flexDirection="column" gap="xs" .padding=${['0', 'l', 'm', 'l'] as const}>
+          ${this.authCardTemplate()}
           <w3m-account-auth-button></w3m-account-auth-button>
           <wui-list-item
             .variant=${networkImage ? 'image' : 'icon'}
@@ -169,6 +171,25 @@ export class W3mAccountSettingsView extends LitElement {
       >
         <wui-text variant="paragraph-500" color="fg-100">Choose account name </wui-text>
       </wui-list-item>
+    `
+  }
+
+  private authCardTemplate() {
+    const type = StorageUtil.getConnectedConnector()
+    const authConnector = ConnectorController.getAuthConnector()
+    const { origin } = location
+    if (!authConnector || type !== 'AUTH' || origin.includes(ConstantsUtil.SECURE_SITE)) {
+      return null
+    }
+
+    return html`
+      <wui-notice-card
+        @click=${this.onGoToUpgradeView.bind(this)}
+        label="Upgrade your wallet"
+        description="Transition to a self-custodial wallet"
+        icon="wallet"
+        data-testid="w3m-wallet-upgrade-card"
+      ></wui-notice-card>
     `
   }
 
@@ -241,10 +262,7 @@ export class W3mAccountSettingsView extends LitElement {
     }
 
     this.loading = true
-    ModalController.setLoading(true)
-    await authConnector?.provider.setPreferredAccount(accountTypeTarget)
-    await ConnectionController.reconnectExternal(authConnector)
-    ModalController.setLoading(false)
+    await ConnectionController.setPreferredAccountType(accountTypeTarget)
 
     this.text =
       accountTypeTarget === W3mFrameRpcConstants.ACCOUNT_TYPES.SMART_ACCOUNT
@@ -275,6 +293,11 @@ export class W3mAccountSettingsView extends LitElement {
     } finally {
       this.disconnecting = false
     }
+  }
+
+  private onGoToUpgradeView() {
+    EventsController.sendEvent({ type: 'track', event: 'EMAIL_UPGRADE_FROM_MODAL' })
+    RouterController.push('UpgradeEmailWallet')
   }
 }
 
